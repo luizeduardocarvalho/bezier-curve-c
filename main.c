@@ -1,9 +1,10 @@
 #include "include/raylib.h"
 
+#define SPEED 0.2
+#define STEP 0.001f
+#define SIZE ((int)(1.0f / STEP) + 1)
+
 typedef enum { FALSE = 0, TRUE = 1 } boolean;
-const double SPEED = 0.2;
-const double STEP = 0.01f;
-const int SIZE = ((int)(1.0f / STEP) + 1);
 
 boolean isMouseOverlapping(Vector2 mouse, Vector2 object,
                            int objectCenterDiff) {
@@ -17,31 +18,33 @@ boolean isMouseOverlapping(Vector2 mouse, Vector2 object,
   return FALSE;
 }
 
+Vector2 getBezierPoint(Vector2 a, Vector2 b, Vector2 c, double t) {
+  Vector2 bezierPoint;
+  bezierPoint.x =
+      (1 - t) * ((1 - t) * a.x + t * b.x) + t * ((1 - t) * b.x + t * c.x);
+
+  bezierPoint.y =
+      (1 - t) * ((1 - t) * a.y + t * b.y) + t * ((1 - t) * b.y + t * c.y);
+
+  return bezierPoint;
+}
+
 int main(void) {
   const int screenWidth = 800;
   const int screenHeight = 450;
 
-  Vector2 circleAPos = {.x = screenWidth / 2 - 50, .y = screenHeight / 2};
-  Vector2 circleBPos = {.x = screenWidth / 2, .y = screenHeight / 2};
-  Vector2 circleCPos = {.x = screenWidth / 2 + 50, .y = screenHeight / 2};
+  Vector2 circlePos[3] = {{screenWidth / 2 - 50, screenHeight / 2},
+                          {screenWidth / 2, screenHeight / 2},
+                          {screenWidth / 2 + 50, screenHeight / 2}};
 
-  Vector2 circleTAPos = {.x = circleAPos.x, .y = circleAPos.y};
-  Vector2 circleTBPos = {.x = circleBPos.x, .y = circleBPos.y};
+  Vector2 circleTPos[2] = {{circlePos[0].x, circlePos[0].y},
+                           {circlePos[1].x, circlePos[1].y}};
 
-  Vector2 bezierPos = {.x = circleAPos.x, .y = circleAPos.y};
-
-  Vector2 bezierCurve[SIZE];
-  /* for (int i = 0; i < SIZE - 1; i++) { */
-  /*   bezierCurve[i] = circleAPos; */
-  /* } */
+  Vector2 bezierCurve[SIZE] = {{0, 0}};
 
   int stepCount = 0;
-
   int circleRadius = 6;
-
-  int trackACircle = FALSE;
-  int trackBCircle = FALSE;
-  int trackCCircle = FALSE;
+  int draggingCircle = -1;
 
   double t = 0.0;
 
@@ -60,55 +63,42 @@ int main(void) {
 
       t += SPEED * deltaTime;
 
-      bezierPos.x = circleTAPos.x + t * (circleTBPos.x - circleTAPos.x);
-      bezierPos.y = circleTAPos.y + t * (circleTBPos.y - circleTAPos.y);
+      circleTPos[0].x = circlePos[0].x + t * (circlePos[1].x - circlePos[0].x);
+      circleTPos[0].y = circlePos[0].y + t * (circlePos[1].y - circlePos[0].y);
+      circleTPos[1].x = circlePos[1].x + t * (circlePos[2].x - circlePos[1].x);
+      circleTPos[1].y = circlePos[1].y + t * (circlePos[2].y - circlePos[1].y);
 
-      circleTAPos.x = circleAPos.x + t * (circleBPos.x - circleAPos.x);
-      circleTAPos.y = circleAPos.y + t * (circleBPos.y - circleAPos.y);
-      circleTBPos.x = circleBPos.x + t * (circleCPos.x - circleBPos.x);
-      circleTBPos.y = circleBPos.y + t * (circleCPos.y - circleBPos.y);
+      Vector2 bezierPos =
+          getBezierPoint(circlePos[0], circlePos[1], circlePos[2], t);
 
       if (stepCount < SIZE && t >= (stepCount * STEP)) {
-        bezierCurve[stepCount++] = bezierPos;
+        bezierCurve[stepCount++] =
+            (Vector2){.x = bezierPos.x, .y = bezierPos.y};
       }
     }
 
-    if (trackACircle) {
-      Vector2 mousePos = GetMousePosition();
-      circleAPos.x = mousePos.x;
-      circleAPos.y = mousePos.y;
-    } else if (trackBCircle) {
-      Vector2 mousePos = GetMousePosition();
-      circleBPos.x = mousePos.x;
-      circleBPos.y = mousePos.y;
-    } else if (trackCCircle) {
-      Vector2 mousePos = GetMousePosition();
-      circleCPos.x = mousePos.x;
-      circleCPos.y = mousePos.y;
-    }
-
+    Vector2 mousePos = GetMousePosition();
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      Vector2 mousePos = GetMousePosition();
-      if (isMouseOverlapping(mousePos, circleAPos, circleRadius)) {
-        trackACircle = TRUE;
-      } else if (isMouseOverlapping(mousePos, circleBPos, circleRadius)) {
-        trackBCircle = TRUE;
-      } else if (isMouseOverlapping(mousePos, circleCPos, circleRadius)) {
-        trackCCircle = TRUE;
+      for (int i = 0; i < 3; i++) {
+        if (isMouseOverlapping(mousePos, circlePos[i], circleRadius)) {
+          draggingCircle = i;
+          break;
+        }
       }
-    } else if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-      trackACircle = FALSE;
-      trackBCircle = FALSE;
-      trackCCircle = FALSE;
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+      draggingCircle = -1;
+    }
+
+    if (draggingCircle != -1) {
+      circlePos[draggingCircle] = mousePos;
     }
 
     if (IsKeyPressed(KEY_R)) {
       t = 0;
-      circleTAPos.x = circleAPos.x;
-      circleTAPos.y = circleAPos.y;
-      circleTBPos.x = circleBPos.x;
-      circleTBPos.y = circleBPos.y;
-
+      circleTPos[0] = circlePos[0];
+      circleTPos[1] = circlePos[1];
       stepCount = 0;
     }
 
@@ -116,22 +106,23 @@ int main(void) {
 
     ClearBackground(RAYWHITE);
 
-    DrawLineEx(circleAPos, circleBPos, 3.0, RED);
-    DrawLineEx(circleBPos, circleCPos, 3.0, RED);
+    DrawLineEx(circlePos[0], circlePos[1], 3.0, RED);
+    DrawLineEx(circlePos[1], circlePos[2], 3.0, RED);
 
-    DrawCircle(circleAPos.x, circleAPos.y, circleRadius, BLACK);
-    DrawCircle(circleBPos.x, circleBPos.y, circleRadius, BLACK);
-    DrawCircle(circleCPos.x, circleCPos.y, circleRadius, BLACK);
+    // Draw reference points
+    for (int i = 0; i < 3; i++) {
+      DrawCircle(circlePos[i].x, circlePos[i].y, circleRadius, BLACK);
+    }
 
-    DrawLineEx(circleTAPos, circleTBPos, 3.0, GREEN);
+    DrawLineEx(circleTPos[0], circleTPos[1], 3.0, GREEN);
 
-    DrawCircle(circleTAPos.x, circleTAPos.y, 3, GREEN);
-    DrawCircle(circleTBPos.x, circleTBPos.y, 3, GREEN);
+    DrawCircle(circleTPos[0].x, circleTPos[0].y, 3, GREEN);
+    DrawCircle(circleTPos[1].x, circleTPos[1].y, 3, GREEN);
 
-    DrawCircle(bezierPos.x, bezierPos.y, 3, BLUE);
-
-    for (int i = 0; i < SIZE - 1; i++) {
-      DrawLineEx(bezierCurve[i], bezierCurve[i + 1], 2.0, PURPLE);
+    for (int i = 1; i < SIZE; i++) {
+      if (bezierCurve[i].x != 0 && bezierCurve[i].y != 0) {
+        DrawLineEx(bezierCurve[i], bezierCurve[i - 1], 2.0, PURPLE);
+      }
     }
 
     EndDrawing();
