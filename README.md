@@ -1,5 +1,7 @@
 # Bezier Curve Simulation
 
-To run use `make` and `./game`.
+## Run
+This project has a Makefile, to run the simulation just use `make run`.
 
-If you want to restart the simulation, press R.
+## Hotkeys
+- R &rarr; restart the simulation.
